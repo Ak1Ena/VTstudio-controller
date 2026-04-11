@@ -1,0 +1,25 @@
+{
+  "name": "vtube-studio-controller",
+  "version": "1.0.0",
+  "description": "Control VTube Studio models programmatically via the VTS API",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "example": "node examples/basic-control.js",
+    "example:expressions": "node examples/expression-control.js",
+    "example:movement": "node examples/model-movement.js"
+  },
+  "keywords": [
+    "vtube-studio",
+    "vts",
+    "vtuber",
+    "api",
+    "controller",
+    "websocket"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
