@@ -118,13 +118,16 @@ await ctrl.unloadModel(0.5);
 ```javascript
 // List all expressions on the current model
 const expressions = await ctrl.getAvailableExpressions();
-// → [{ name: 'Smile', file: 'smile.vexp3.json', ... }]
+// → [{ name: 'Smile', file: 'smile.exp3.json', active: false }]
 
-// Trigger an expression
-await ctrl.triggerExpression('smile.vexp3.json', 1);
+// Trigger an expression (expressionFile, value, slot)
+await ctrl.triggerExpression('smile.exp3.json', 1.0, 0);
 
 // Deactivate an expression
-await ctrl.deactivateExpression('smile.vexp3.json', 1);
+await ctrl.deactivateExpression('smile.exp3.json', 1);
+
+// Get currently active expressions
+const active = await ctrl.getActiveExpressions();
 ```
 
 ### Movement

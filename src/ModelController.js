@@ -50,26 +50,45 @@ export class ModelController {
   }
 
   async getAvailableExpressions() {
-    const result = await this.client.sendRequest('ExpressionStateRequest', { details: true });
-    return result.data?.availableExpressions || [];
+    const result = await this.client.sendRequest('ExpressionStateRequest', {});
+    
+    // VTube Studio returns expressions in 'expressions' array
+    const expressions = result.data?.expressions || result.data?.availableExpressions || [];
+    
+    if (expressions.length === 0) {
+      console.log('[WARNING] No expressions found. Make sure:');
+      console.log('  1. A model is loaded in VTube Studio');
+      console.log('  2. The model has expressions configured');
+      console.log('  3. VTube Studio API access is enabled');
+    }
+    
+    // Return expression objects with name and file properties
+    return expressions.map(exp => ({
+      name: exp.name || exp.expressionName || exp.file || exp,
+      file: exp.file || exp.expressionFile || exp.name || exp,
+      active: exp.active || false
+    }));
   }
 
   async getActiveExpressions() {
-    const result = await this.client.sendRequest('ExpressionStateRequest', { details: false });
+    const result = await this.client.sendRequest('ExpressionStateRequest', {});
     return result.data?.activeExpressions || [];
   }
 
-  async triggerExpression(expressionName, fadeTime = 1) {
+  async triggerExpression(expressionFile, value = 1.0, slot = 0) {
     return await this.client.sendRequest('ExpressionActivationRequest', {
-      expressionFile: expressionName,
+      expressionFile: expressionFile,
       active: true,
-      fadeTime
+      value: value,
+      fadeMode: 'linear',
+      fadeTime: 0.5,
+      ...(slot !== undefined && slot !== null && { autoDeactivateAfterSeconds: false })
     });
   }
 
-  async deactivateExpression(expressionName, fadeTime = 1) {
+  async deactivateExpression(expressionFile, fadeTime = 1) {
     return await this.client.sendRequest('ExpressionActivationRequest', {
-      expressionFile: expressionName,
+      expressionFile: expressionFile,
       active: false,
       fadeTime
     });
@@ -99,6 +118,23 @@ export class ModelController {
 
   async getModelState() {
     return await this.client.sendRequest('InputParameterListRequest', {});
+  }
+
+  async getInputParameters() {
+    const result = await this.client.sendRequest('InputParameterListRequest', {});
+    // VTS returns defaultParameters and customParameters arrays
+    return [
+      ...(result.data?.defaultParameters || []),
+      ...(result.data?.customParameters || [])
+    ];
+  }
+
+  async getOutputParameters() {
+    const result = await this.client.sendRequest('OutputParameterListRequest', {});
+    return [
+      ...(result.data?.defaultParameters || []),
+      ...(result.data?.customParameters || [])
+    ];
   }
 
   async triggerHotkey(hotkeyId) {

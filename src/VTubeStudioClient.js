@@ -90,7 +90,7 @@ export class VTubeStudioClient {
           this.pendingRequests.delete(requestID);
           reject(new Error(`Request timeout: ${messageType}`));
         }
-      }, 10000);
+      }, messageType === 'AuthenticationTokenRequest' ? 30000 : 10000);
     });
   }
 
