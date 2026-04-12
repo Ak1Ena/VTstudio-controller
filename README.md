@@ -10,6 +10,9 @@ Control VTube Studio models programmatically using the official VTS WebSocket AP
 - 🎯 Move, position, zoom models
 - 📊 Set custom parameter values
 - 🔑 Activate hotkeys programmatically
+- 🌈 Control art mesh colors and visibility
+- 🎬 Timed animation sequences
+- 🤖 AI-ready: smooth transitions, state tracking, event system
 
 ## Setup
 
@@ -77,6 +80,7 @@ node my-script.js
 | `node examples/basic-control.js` | Lists models, loads one, moves it |
 | `node examples/expression-control.js` | Lists & triggers expressions |
 | `node examples/model-movement.js` | Smooth movement demo |
+| `node examples/ai-ready-test.js` | Tests all AI-ready methods |
 
 ## API Reference
 
@@ -153,8 +157,90 @@ await ctrl.setMultipleParameters([
   { id: 'MouthSmile',   value: 1, weight: 1 }
 ]);
 
+// Smooth transition with easing (duration in ms)
+await ctrl.smoothParameterTransition('EyeOpenLeft', 0.3, 500, 'easeInOut');
+// Easing options: 'easeInOut', 'easeIn', 'easeOut', 'linear'
+
+// Smooth batch transition for multiple parameters
+await ctrl.smoothParameterTransitionBatch([
+  { id: 'EyeOpenLeft',  value: 0.3 },
+  { id: 'EyeOpenRight', value: 0.3 }
+], 800);
+
+// Get current live parameter values
+const values = await ctrl.getCurrentParameterValues();
+// → { EyeOpenLeft: 1.0, MouthSmile: 0.0, FaceAngleZ: 5 }
+
 // List all parameters the model has
 const state = await ctrl.getModelState();
+```
+
+### State Tracking
+
+```javascript
+// Get full model state snapshot
+const snapshot = await ctrl.getModelStateSnapshot();
+// → { expressions: [...], inputParameters: [...] }
+
+// Reset all parameters to neutral + deactivate expressions
+await ctrl.resetToNeutral();
+
+// Reset with custom fade time
+await ctrl.resetToNeutral(1.0);
+```
+
+### Art Mesh Control
+
+```javascript
+// List all art meshes on current model
+const meshes = await ctrl.getAvailableMeshes();
+
+// Tint a mesh with color
+await ctrl.setMeshColor('Blush', {
+  r: 255, g: 100, b: 100, a: 0.4  // pink blush
+});
+
+// Show/hide a mesh
+await ctrl.setMeshVisibility('Tear', true);
+await ctrl.setMeshVisibility('Tear', false);
+```
+
+### Animation Sequences
+
+```javascript
+// Play a timed sequence of actions
+await ctrl.playSequence([
+  { type: 'expression', file: 'smile.exp3.json', value: 1.0, at: 0 },
+  { type: 'parameter', id: 'MouthSmile', value: 0.5, at: 1 },
+  { type: 'move', x: 2, y: 0, zoom: 1.2, at: 2, duration: 1 },
+  { type: 'meshColor', meshName: 'Blush', color: { r: 255, g: 100, b: 100, a: 0.3 }, at: 3 },
+  { type: 'reset', at: 5 }  // reset everything at 5s
+]);
+
+// Action types:
+// 'expression'     - trigger/deactivate expression
+// 'parameter'      - set single parameter
+// 'parameters'     - set multiple parameters
+// 'move'           - move model position
+// 'hotkey'         - trigger hotkey
+// 'meshColor'      - tint mesh
+// 'meshVisibility' - show/hide mesh
+// 'reset'          - reset to neutral state
+```
+
+### Event System
+
+```javascript
+// Listen for custom events
+controller.on('customEvent', (data) => {
+  console.log('Event:', data);
+});
+
+// Remove specific listener
+controller.off('customEvent', callback);
+
+// Remove all listeners for an event
+controller.off('customEvent');
 ```
 
 ### Hotkeys
