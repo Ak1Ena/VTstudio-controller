@@ -129,14 +129,6 @@ export class ModelController {
     ];
   }
 
-  async getOutputParameters() {
-    const result = await this.client.sendRequest('OutputParameterListRequest', {});
-    return [
-      ...(result.data?.defaultParameters || []),
-      ...(result.data?.customParameters || [])
-    ];
-  }
-
   async triggerHotkey(hotkeyId) {
     return await this.client.sendRequest('HotkeyTriggerRequest', {
       hotkeyID: hotkeyId
@@ -155,5 +147,211 @@ export class ModelController {
       positionY: y,
       size: zoom
     });
+  }
+
+  async resetToNeutral(fadeTime = 0.5) {
+    const inputParams = await this.getInputParameters();
+    const resetParams = inputParams.map(p => ({
+      id: p.name,
+      value: p.defaultValue !== undefined ? p.defaultValue : 0,
+      weight: 1
+    }));
+
+    await this.setMultipleParameters(resetParams);
+
+    const expressions = await this.getActiveExpressions();
+    for (const exp of expressions) {
+      await this.deactivateExpression(exp.file || exp.name, fadeTime);
+    }
+  }
+
+  async getCurrentParameterValues() {
+    const result = await this.client.sendRequest('ParameterValueRequest', {
+      parameterID: '*'
+    });
+
+    const params = {};
+    if (result.data?.parameterValues) {
+      for (const p of result.data.parameterValues) {
+        params[p.name || p.id] = p.value;
+      }
+    }
+
+    return params;
+  }
+
+  async getModelStateSnapshot() {
+    const [expressions, inputParams] = await Promise.all([
+      this.getAvailableExpressions(),
+      this.getInputParameters()
+    ]);
+
+    return {
+      expressions,
+      inputParameters: inputParams
+    };
+  }
+
+  async getAvailableMeshes() {
+    const result = await this.client.sendRequest('ArtMeshListRequest', {});
+    return result.data?.artMeshNames || result.data?.artMeshes || [];
+  }
+
+  async setMeshColor(meshName, color) {
+    const tintData = {
+      artMeshName: meshName,
+      tint: {
+        colorR: color.r ?? color.red ?? 0,
+        colorG: color.g ?? color.green ?? 0,
+        colorB: color.b ?? color.blue ?? 0,
+        colorA: color.a ?? color.alpha ?? 1,
+        mixWithSceneLightingColor: color.mixWithSceneLightingColor ?? 1
+      }
+    };
+
+    return await this.client.sendRequest('ColorTintRequest', tintData);
+  }
+
+  async setMeshVisibility(meshName, visible) {
+    return await this.client.sendRequest('ArtMeshVisibilityRequest', {
+      artMeshName: meshName,
+      visible
+    });
+  }
+
+  async smoothParameterTransition(id, targetValue, duration = 500, easing = 'easeInOut') {
+    const steps = 20;
+    const interval = duration / steps;
+
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const eased = this._applyEasing(t, easing);
+      const currentValue = eased * targetValue;
+
+      await this.setParameterValue(id, currentValue, 1);
+      await this._sleep(interval);
+    }
+
+    await this.setParameterValue(id, targetValue, 1);
+  }
+
+  async smoothParameterTransitionBatch(params, duration = 500, easing = 'easeInOut') {
+    const steps = 20;
+    const interval = duration / steps;
+
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const eased = this._applyEasing(t, easing);
+
+      const batchParams = params.map(p => ({
+        id: p.id,
+        value: eased * p.value,
+        weight: p.weight || 1
+      }));
+
+      await this.setMultipleParameters(batchParams);
+      await this._sleep(interval);
+    }
+
+    // Set final values
+    const finalParams = params.map(p => ({
+      id: p.id,
+      value: p.value,
+      weight: p.weight || 1
+    }));
+    await this.setMultipleParameters(finalParams);
+  }
+
+  _applyEasing(t, easing) {
+    switch (easing) {
+      case 'linear':
+        return t;
+      case 'easeIn':
+        return t * t;
+      case 'easeOut':
+        return t * (2 - t);
+      case 'easeInOut':
+      default:
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+  }
+
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async playSequence(actions) {
+    const sortedActions = [...actions].sort((a, b) => (a.at || 0) - (b.at || 0));
+    const startTime = Date.now();
+
+    for (const action of sortedActions) {
+      const delay = ((action.at || 0) * 1000) - (Date.now() - startTime);
+      if (delay > 0) {
+        await this._sleep(delay);
+      }
+
+      await this._executeAction(action);
+    }
+  }
+
+  async _executeAction(action) {
+    switch (action.type) {
+      case 'expression':
+        if (action.active === false) {
+          await this.deactivateExpression(action.file, action.fadeTime || 0.5);
+        } else {
+          await this.triggerExpression(action.file, action.value || 1.0, action.slot || 0);
+        }
+        break;
+      case 'parameter':
+        await this.setParameterValue(action.id, action.value, action.weight || 1);
+        break;
+      case 'parameters':
+        await this.setMultipleParameters(action.parameters);
+        break;
+      case 'move':
+        await this.moveModel(action.x, action.y, action.zoom || 1, action.duration || 0);
+        break;
+      case 'hotkey':
+        await this.triggerHotkey(action.hotkeyId);
+        break;
+      case 'meshColor':
+        await this.setMeshColor(action.meshName, action.color);
+        break;
+      case 'meshVisibility':
+        await this.setMeshVisibility(action.meshName, action.visible);
+        break;
+      case 'reset':
+        await this.resetToNeutral(action.fadeTime || 0.5);
+        break;
+      default:
+        console.warn(`[ModelController] Unknown action type: ${action.type}`);
+    }
+  }
+
+  on(event, callback) {
+    if (!this._eventListeners) {
+      this._eventListeners = {};
+    }
+    if (!this._eventListeners[event]) {
+      this._eventListeners[event] = [];
+    }
+    this._eventListeners[event].push(callback);
+  }
+
+  off(event, callback) {
+    if (!this._eventListeners || !this._eventListeners[event]) return;
+    if (callback) {
+      this._eventListeners[event] = this._eventListeners[event].filter(cb => cb !== callback);
+    } else {
+      delete this._eventListeners[event];
+    }
+  }
+
+  _emit(event, data) {
+    if (!this._eventListeners || !this._eventListeners[event]) return;
+    for (const callback of this._eventListeners[event]) {
+      callback(data);
+    }
   }
 }
