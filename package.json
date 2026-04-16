@@ -34,5 +34,8 @@
   "bugs": {
     "url": "https://github.com/Ak1Ena/VTstudio-controller/issues"
   },
-  "homepage": "https://github.com/Ak1Ena/VTstudio-controller#readme"
+  "homepage": "https://github.com/Ak1Ena/VTstudio-controller#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
 }
