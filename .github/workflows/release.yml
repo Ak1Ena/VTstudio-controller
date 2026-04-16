@@ -2,23 +2,21 @@ name: Release npm package
 
 on:
   release:
-    branches:
-      - main
+    types:
+      - published
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -29,23 +27,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump package version
-        id: version
+      - name: Sync package version to release tag
         shell: bash
         run: |
-          NEW_VERSION="$(npm version patch -m "chore: release %s [skip ci]")"
-          echo "new_version=${NEW_VERSION#v}" >> "$GITHUB_OUTPUT"
-          echo "new_tag=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Push version commit and tag
-        run: |
-          git push origin main
-          git push origin "${{ steps.version.outputs.new_tag }}"
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+          npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
 
       - name: Build npm package
         run: npm pack
@@ -54,11 +41,3 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${{ steps.version.outputs.new_tag }}" \
-            --title "${{ steps.version.outputs.new_tag }}" \
-            --notes "Release ${{ steps.version.outputs.new_tag }}"
