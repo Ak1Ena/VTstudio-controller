@@ -1,6 +1,6 @@
 {
   "name": "vtube-studio-controller",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Control VTube Studio models programmatically via the VTS API",
   "main": "src/index.js",
   "type": "module",
@@ -23,7 +23,7 @@
     "ws": "^8.16.0"
   },
   "directories": {
-    "src":"src",
+    "src": "src",
     "example": "examples"
   },
   "devDependencies": {},
