@@ -17,9 +17,22 @@
     "controller",
     "websocket"
   ],
-  "author": "",
+  "author": "Ak1Ena",
   "license": "MIT",
   "dependencies": {
     "ws": "^8.16.0"
-  }
+  },
+  "directories": {
+    "src":"src",
+    "example": "examples"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ak1Ena/VTstudio-controller.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ak1Ena/VTstudio-controller/issues"
+  },
+  "homepage": "https://github.com/Ak1Ena/VTstudio-controller#readme"
 }
